@@ -3,14 +3,17 @@ import logging
 
 from dotenv import load_dotenv
 
-import openai
+from openai import OpenAI
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 
 load_dotenv()
 
+client = OpenAI()
+
 tg_bot_token = os.environ['TG_BOT_TOKEN']
-openai.api_key = os.environ['OPENAI_API_KEY']
+client.api_key = os.environ['OPENAI_API_KEY']
+
 
 messages = [{
     "role": "system",
@@ -27,10 +30,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    messages.append({"role": "user", "context": update.message.text})
-    completion = openai.chat.completions.create(model="gpt-3.5-turbo",
+    messages.append({"role": "user", "content": update.message.text})
+    completion = client.chat.completions.create(model="gpt-3.5-turbo",
                                                 messages=messages)
-    completion_answer = completion['choices'][0]['message']['content']
+    completion_answer = completion.choices[0].message.content
     messages.append({"role": "assistant", "content": completion_answer})
 
     await context.bot.send_message(chat_id=update.effective_chat.id,
