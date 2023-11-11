@@ -17,7 +17,7 @@ client.api_key = os.environ['OPENAI_API_KEY']
 
 messages = [{
     "role": "system",
-    "content": "You are a helpful assistant that answers questions."
+    "content": "You are a helpful assistant designed to output JSON."
 }]
 
 logging.basicConfig(
@@ -31,7 +31,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     messages.append({"role": "user", "content": update.message.text})
-    completion = client.chat.completions.create(model="gpt-3.5-turbo",
+    completion = client.chat.completions.create(model="gpt-3.5-turbo-1106",
+                                                response_format={ "type": "json_object"},
                                                 messages=messages)
     completion_answer = completion.choices[0].message.content
     messages.append({"role": "assistant", "content": completion_answer})
