@@ -47,3 +47,51 @@ df = pd.DataFrame(texts, columns=['fname', 'text'])
 # Set the text column to be the raw text with the newlines removed
 df['text'] = df.fname + ". " + remove_newlines(df.text)
 df.to_csv('processed/scraped.csv')
+
+# Load the cl100k_base tokenizer, which is designed to work with the ada-02 model
+tokenizer = tiktoken.get_encoding("cl100k_base")
+
+df = pd.read_csv('processed/scraped.csv', index_col=0)
+df.columns = ['title', 'text']
+
+# Tokenize the text and save the number of tokens to a new column
+df['n_tokens'] = df.text.apply(lambda x: len(tokenizer.encode(x)))
+df.head()
+
+chunk_size = 1000
+
+text_splitter = RecursiveCharacterTextSplitter(
+   length_function = len,
+   chunk_size = chunk_size,
+   chunk_overlap = 0,
+   add_start_index = False
+)
+
+shortened = []
+
+for row in df.iterrows():
+   
+   # if the text is none, go to the next row
+    if row[1]['text'] is None:
+        continue
+   
+   # If the number of tokens is greater than the max number of tokens, split the text into chunks
+    if row[1]['n_tokens'] > chunk_size:
+      # Split the text using LangChain's text splitter
+        chunks = text_splitter.create_documents([row[1]['text']])
+        # Append the content of each chunk to the 'shortened' list
+        for chunk in chunks:
+            shortened.append(chunk.page_content)
+
+    # Otherwise, add the text to the list of shortened texts
+    else:
+        shortened.append(row[1]['text'])
+
+df = pd.DataFrame(shortened, columns=['text'])
+df['n_tokens'] = df.text.apply(lambda x: len(tokenizer.encode(x)))
+
+if not os.path.exists('processed/embeddings.csv'):
+    df['embeddings'] = df.text.apply(lambda x: client.embeddings.create(input=x, model='text-embedding-ada-002').data[0].embedding)
+    df.to_csv('processed/embeddings.csv')
+else:
+   print("Embeddings already exist")
