@@ -70,12 +70,12 @@ text_splitter = RecursiveCharacterTextSplitter(
 shortened = []
 
 for row in df.iterrows():
-   
-   # if the text is none, go to the next row
+    
+    # if the text is none, go to the next row
     if row[1]['text'] is None:
         continue
    
-   # If the number of tokens is greater than the max number of tokens, split the text into chunks
+    # If the number of tokens is greater than the max number of tokens, split the text into chunks
     if row[1]['n_tokens'] > chunk_size:
       # Split the text using LangChain's text splitter
         chunks = text_splitter.create_documents([row[1]['text']])
@@ -94,4 +94,4 @@ if not os.path.exists('processed/embeddings.csv'):
     df['embeddings'] = df.text.apply(lambda x: client.embeddings.create(input=x, model='text-embedding-ada-002').data[0].embedding)
     df.to_csv('processed/embeddings.csv')
 else:
-   print("Embeddings already exist")
+    print("Embeddings already exist")

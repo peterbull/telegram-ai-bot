@@ -24,14 +24,14 @@ def create_context(question, df, max_len=1800, size="ada"):
     q_embeddings = client.embeddings.create(input=question, model='text-embedding-ada-002') \
                    .data[0].embedding
     
-    df['distances'] = df.embeddings.apply(
-                      lambda x: cosine_similarity(np.array(q_embeddings), np.array(x)))
+    df['similarities'] = df.embeddings.apply(
+                         lambda x: cosine_similarity(np.array(q_embeddings), np.array(x)))
 
     returns = []
     cur_len = 0
 
     # Sort by distance and add the text to the context until the context is too long
-    for i, row in df.sort_values('distances', ascending=True).iterrows():
+    for i, row in df.sort_values('similarities', ascending=False).iterrows():
 
         # Add the length of the text to the current length
         cur_len += row['n_tokens'] + 4
@@ -46,6 +46,4 @@ def create_context(question, df, max_len=1800, size="ada"):
     # Return the context
     return "\n\n###\n\n".join(returns)
 
-
-create_context(question='What is CSS?', df=df)
 
