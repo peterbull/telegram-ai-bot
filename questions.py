@@ -3,7 +3,9 @@ import pandas as pd
 import openai
 import os
 from openai import OpenAI
+
 from embedding_utils.distance import cosine_similarity
+
 
 client = OpenAI()
 
@@ -46,4 +48,44 @@ def create_context(question, df, max_len=1800, size="ada"):
     # Return the context
     return "\n\n###\n\n".join(returns)
 
+def answer_question(df,
+                     model="gpt-3.5-turbo-1106",
+                     question="What is the meaning of life?",
+                     max_len=1800,
+                     size="ada",
+                     debug=False,
+                     max_tokens=150,
+                     stop_sequence=None):
+    """
+    Answer a question based on the most similar context from the dataframe texts
+    """
+    context = create_context(
+        question=question,
+        df=df,
+        max_len=max_len,
+        size=size
+    )
+    # If debug print raw response
+    if debug:
+        print("Context\n" + context)
+        print("\n\n")
 
+    try:
+        # Create a completion using the question and context
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{
+                "role": "user",
+                "content": f"Answer the question based on the context below, and if the question can't be answered based on the context, say \"I don't know.\" Try to site sources to the links in the context when possible.\n\nContext: {context}\n\n---\n\nQuestion: {question}\nSource:\nAnswer:",
+            }],
+            temperature=0,
+            max_tokens=max_tokens,
+            top_p=1,
+            frequency_penalty=0,
+            presence_penalty=0,
+            stop=stop_sequence,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(e)
+        return ""
