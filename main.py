@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from openai import OpenAI
 from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
+from telegram.ext import filters, ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler
 
 from questions import answer_question
 
@@ -17,13 +17,70 @@ client = OpenAI()
 tg_bot_token = os.environ['TG_BOT_TOKEN']
 client.api_key = os.environ['OPENAI_API_KEY']
 
+CODE_PROMPT = """
+Here are two input:output examples for code generation. Please use these and follow the styling for future requests that you think are pertinent to the request. Make sure All HTML is generated with the JSX flavoring.
+
+// INPUT:
+// A Blue Box with 3 yellow cirles inside of it that have a red outline
+// OUTPUT:
+<div style={{
+  backgroundColor: 'blue',
+  padding: '20px',
+  display: 'flex',
+  justifyContent: 'space-around',
+  alignItems: 'center',
+  width: '300px',
+  height: '100px',
+}}>
+  <div style={{
+    backgroundColor: 'yellow',
+    borderRadius: '50%',
+    width: '50px',
+    height: '50px',
+    border: '2px solid red'
+  }}></div>
+  <div style={{
+    backgroundColor: 'yellow',
+    borderRadius: '50%',
+    width: '50px',
+    height: '50px',
+    border: '2px solid red'
+  }}></div>
+  <div style={{
+    backgroundColor: 'yellow',
+    borderRadius: '50%',
+    width: '50px',
+    height: '50px',
+    border: '2px solid red'
+  }}></div>
+</div>
+
+// INPUT:
+// A RED BUTTON THAT SAYS 'CLICK ME'
+// OUTPUT:
+<button style={{
+  backgroundColor: 'red',
+  color: 'white',
+  padding: '10px 20px',
+  border: 'none',
+  borderRadius: '50px',
+  cursor: 'pointer'
+}}>
+  Click Me
+</button>
+"""
+
+
 df = pd.read_csv('processed/embeddings.csv', index_col=0)
 df['embeddings'] = df['embeddings'].apply(eval).apply(np.array)
 
 
 messages = [{
     "role": "system",
-    "content": "You are a helpful assistant designed to output JSON."
+    "content": "You are a helpful assistant that answers questions"
+}, {
+    "role": "system",
+    "content": CODE_PROMPT
 }]
 
 logging.basicConfig(
@@ -50,16 +107,26 @@ async def mozilla(update: Update, context: ContextTypes.DEFAULT_TYPE):
     answer = answer_question(df, question=update.message.text, debug=True)
     await context.bot.send_message(chat_id=update.effective_chat.id, text=answer)
 
+async def code_generation(update: Update, context:ContextTypes.DEFAULT_TYPE):
+    messages.append({"role": "user", "content": update.message.text})
+    completion = client.chat.completions.create(model="gpt-4-1106-preview",
+                                                messages=messages)
+    completion_answer = completion.choices[0].message.content
+    messages.append({"role": "assistant", "content": completion_answer})
+
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=completion_answer)
 
 if __name__ == '__main__':
     application = ApplicationBuilder().token(tg_bot_token).build()
 
     start_handler = CommandHandler('start', start)
-    chat_handler = CommandHandler('chat', chat)
+    chat_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), chat)
     mozilla_handler = CommandHandler('mozilla', mozilla)
+    code_generation_handler = CommandHandler('code', code_generation)
 
     application.add_handler(start_handler)
     application.add_handler(chat_handler)
     application.add_handler(mozilla_handler)
+    application.add_handler(code_generation_handler)
 
     application.run_polling()
